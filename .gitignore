@@ -1,0 +1,24 @@
+# Ignore local demo code
+local_demo/
+
+# Ignore Python virtual environments
+.venv/
+venv/
+env/
+
+# macOS system files
+.DS_Store
+
+# Ignore pycache and log files
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+# VS Code workspace settings
+.vscode/
+
+# Ignore build, dist and egg-info
+build/
+dist/
+*.egg-info/

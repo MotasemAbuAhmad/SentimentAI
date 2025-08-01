@@ -1,0 +1,23 @@
+# backend + model exports
+
+# WebSocket server
+fastapi
+uvicorn
+
+# Inference & vision
+onnxruntime
+opencv-python
+mediapipe
+
+# PyTorch model definition & export
+torch
+torchvision
+
+# TensorFlow-macOS & ONNX conversion
+tensorflow-macos
+tensorflow-metal
+tf2onnx
+
+# (Optional) Core ML conversion
+coremltools
+

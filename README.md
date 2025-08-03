@@ -23,23 +23,24 @@ This emphasizes the API, the modern frontend, and local-only privacy.
 ## 🚀 Quick Start
 
 1. **Clone this repo**  
-   ```sh
-   git clone https://github.com/MotasemAbuAhmad/SentimentAI.git
-   cd SentimentAI
+   	```sh
+   	git clone https://github.com/MotasemAbuAhmad/SentimentAI.git
+   	cd SentimentAI
 
 2. **Install requirements**
 (Recommended: use a virtualenv/venv)
-
-pip install -r requirements.txt
+   	```sh
+	pip install -r requirements.txt
 
 
 3. **Start the API server**
-
-uvicorn backend.main:app --reload
+	```sh
+	uvicorn backend.main:app --reload
 
 
 4. **Visit the web interface**
-Go to http://localhost:8000 in your browser.
+	```sh
+ 	Go to http://localhost:8000 in your browser.
 
 ⸻
 

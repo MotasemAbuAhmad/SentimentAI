@@ -5,8 +5,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, File, UploadFile
 from fastapi.responses import JSONResponse
 import uvicorn
 
-from face_detection import FaceDetector
-from inference import EmotionClassifier
+from backend.face_detection import FaceDetector
+from backend.inference import EmotionClassifier
 
 # Emotion class labels (used for API responses)
 EMOTION_CLASSES = ["Angry", "Disgusted", "Fearful", "Happy", "Sad", "Surprised", "Neutral"]

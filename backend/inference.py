@@ -5,12 +5,12 @@ import onnxruntime as ort
 
 class EmotionClassifier:
     def __init__(self, model_path="models/emotion_model.onnx"):
-        # Prefer CoreML (Metal + Neural Engine), then CPU
+        # Use only CPUExecutionProvider for maximum compatibility
         providers = [
-            ('CoreMLExecutionProvider', {
-                'ModelFormat': 'MLProgram',
-                'MLComputeUnits': 'ALL'
-            }),
+            # ('CoreMLExecutionProvider', {
+            #     'ModelFormat': 'MLProgram',
+            #     'MLComputeUnits': 'ALL'
+            # }),
             ('CPUExecutionProvider', {})
         ]
         self.session = ort.InferenceSession(model_path, providers=providers)

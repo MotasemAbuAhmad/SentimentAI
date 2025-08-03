@@ -1,24 +1,20 @@
-# backend + model exports
-
-# WebSocket server
+# --- Serving and API ---
 fastapi
 uvicorn
 
-# Inference & vision
-onnxruntime
-opencv-python
-mediapipe
+# --- Inference and vision ---
+onnxruntime           # For ONNX model inference
+opencv-python         # For image processing
+mediapipe             # For face detection
 
-# PyTorch model definition & export
-torch
-torchvision
-
-# TensorFlow-macOS & ONNX conversion
-tensorflow-macos
-tensorflow-metal
-tf2onnx
-
-# (Optional) Core ML conversion
-coremltools
-
+# --- File upload support (FastAPI needs this for image upload) ---
 python-multipart
+
+# --- (Optional) Model conversion tools ---
+# Uncomment if you want to convert models yourself
+# torch
+# torchvision
+# tensorflow-macos
+# tensorflow-metal
+# tf2onnx
+# coremltools

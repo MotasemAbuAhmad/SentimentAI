@@ -1,77 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>SentimentAI Live Webcam</title>
+  <meta charset="UTF-8">
+  <title>SentimentAI: Emotion Detector</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
   <style>
-    html, body { margin: 0; height: 100%; background: #1a1a1a; color: #fff; }
-    #main { display: flex; flex-direction: column; align-items: center; margin-top: 30px;}
-    video, canvas { border-radius: 18px; box-shadow: 0 8px 36px #0003; }
-    #status { margin-top: 8px; }
+    body { font-family: Inter, sans-serif; background: #171f2e; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh;}
+    h1 { font-weight: 800; letter-spacing: 0.03em; margin-top: 36px;}
+    #drop-area { border: 2px dashed #4099ff; border-radius: 16px; background: #212b3c; padding: 2.1em 2em 1.5em; margin-top: 1.5em; text-align: center; max-width: 450px;}
+    #drop-area.dragover { background: #1a2231;}
+    input[type="file"] { display: none;}
+    #image-wrap { position: relative; display: inline-block; margin-top: 1.1em;}
+    .face-box { position: absolute; border: 2.5px solid #60f098; border-radius: 10px; pointer-events:none; }
+    .emotion-tag { position: absolute; left: 0; top: -1.9em; background: #171f2e; color: #60f098; padding: 3px 13px; border-radius: 10px; font-size: 1.08em; font-weight: bold; pointer-events:none; box-shadow:0 2px 12px #0002;}
+    #emotion-output { margin-top: 1.4em; font-size: 1.22em; font-weight: 500; color: #ffc542; min-height:32px;}
+    button {
+      background: #356aff;
+      color: #fff;
+      border: none;
+      padding: 12px 26px;
+      font-size: 1.1rem;
+      border-radius: 9px;
+      margin-top: 18px;
+      cursor: pointer;
+      font-weight: 600;
+      box-shadow: 0 2px 12px rgba(50,100,255,0.09);
+      transition: background 0.19s;
+      margin-bottom: 0.7em;
+    }
+    button:hover, button:focus { background: #244fd7; outline: none; }
+    @media (max-width: 600px) {
+      #drop-area { padding: 1.2em 0.6em; }
+      h1 { font-size: 1.3rem; }
+    }
   </style>
 </head>
 <body>
-  <div id="main">
-    <video id="video" width="480" height="360" autoplay muted playsinline></video>
-    <canvas id="canvas" width="480" height="360"></canvas>
-    <div id="status">Connecting…</div>
+  <h1>😊 SentimentAI Emotion Detector</h1>
+  <div id="drop-area">
+    <label for="fileElem" style="cursor:pointer;">
+      <span style="font-size:1.07em;">Choose an image<br>or drag it here to detect emotions</span>
+    </label><br>
+    <input type="file" id="fileElem" accept="image/*">
+    <br>
+    <button id="select-btn" type="button">Select Image</button>
+    <div id="image-wrap"></div>
+    <div id="emotion-output"></div>
   </div>
   <script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const status = document.getElementById('status');
-    let ws;
-    const emotionLabels = ["Angry","Disgusted","Fearful","Happy","Sad","Surprised","Neutral"];
+    const dropArea = document.getElementById('drop-area');
+    const fileElem = document.getElementById('fileElem');
+    const imageWrap = document.getElementById('image-wrap');
+    const emotionOut = document.getElementById('emotion-output');
+    const selectBtn = document.getElementById('select-btn');
 
-    // Start webcam
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        video.srcObject = stream;
-        video.onloadedmetadata = () => video.play();
-        status.textContent = "Starting camera…";
-        connectWebSocket();
-      })
-      .catch(err => status.textContent = "Camera error: " + err);
+    // Drag & drop support
+    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+    dropArea.addEventListener('drop', e => {
+      e.preventDefault(); dropArea.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
 
-    function connectWebSocket() {
-      ws = new WebSocket("ws://localhost:8000/ws");
-      ws.binaryType = "arraybuffer";
-      ws.onopen = () => {
-        status.textContent = "Connected";
-        sendFrames();
+    selectBtn.onclick = () => fileElem.click();
+
+    fileElem.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    function handleFile(file) {
+      // Show preview image
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        imageWrap.innerHTML = `<img id="preview-img" src="${evt.target.result}" style="max-width:420px; max-height:320px; border-radius:12px; box-shadow:0 4px 32px #0003;">`;
+        emotionOut.innerHTML = "⏳ Detecting…";
+        setTimeout(() => runPredict(file), 100);
       };
-      ws.onerror = e => status.textContent = "WebSocket error!";
-      ws.onclose = () => status.textContent = "Connection closed.";
-      ws.onmessage = evt => {
-        const data = JSON.parse(evt.data);
-        drawOverlay(data.emotions);
-      };
+      reader.readAsDataURL(file);
     }
 
-    function sendFrames() {
-      const send = () => {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(blob => {
-          if (ws.readyState === 1 && blob) {
-            ws.send(blob);
-            setTimeout(send, 80); // ~12 FPS
-          }
-        }, 'image/jpeg', 0.8);
-      };
-      send();
+    async function runPredict(file) {
+      const form = new FormData();
+      form.append('file', file);
+      try {
+        const res = await fetch('/predict', { method: 'POST', body: form });
+        const data = await res.json();
+
+        const img = document.getElementById('preview-img');
+        img.onload = () => drawBoxes(data, img);
+        if (img.complete) drawBoxes(data, img);
+
+        if (data.primary_emotion) {
+          emotionOut.innerHTML = `<span style="color:#ffc542;font-size:1.23em;">Detected: <b>${data.primary_emotion}</b></span>`;
+        } else if (data.num_faces === 0) {
+          emotionOut.innerHTML = "<span style='color:#f44;'>No face detected.</span>";
+        } else {
+          emotionOut.innerHTML = "";
+        }
+      } catch (err) {
+        emotionOut.innerHTML = "<span style='color:#f44;'>❌ Could not connect to API.</span>";
+      }
     }
 
-    function drawOverlay(emotions) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      // This simple overlay just displays number of detected faces and emotion indices
-      ctx.font = "20px sans-serif";
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(0, 0, 250, 36);
-      ctx.fillStyle = "#ff0";
-      ctx.fillText("Detected faces: " + emotions.length, 10, 28);
-      emotions.forEach((e, i) => {
-        ctx.fillText(emotionLabels[e] || "?", 10, 60 + i * 28);
+    function drawBoxes(data, img) {
+      // Remove old boxes
+      document.querySelectorAll('.face-box, .emotion-tag').forEach(e=>e.remove());
+      if (!data.faces || data.faces.length === 0) return;
+      const rect = img.getBoundingClientRect();
+      const scaleX = img.width / img.naturalWidth, scaleY = img.height / img.naturalHeight;
+      data.faces.forEach(f => {
+        const [x, y, w, h] = f.box;
+        const left = x * scaleX, top = y * scaleY, width = w * scaleX, height = h * scaleY;
+
+        // Draw rectangle
+        const box = document.createElement('div');
+        box.className = 'face-box';
+        box.style.left = left + 'px';
+        box.style.top = top + 'px';
+        box.style.width = width + 'px';
+        box.style.height = height + 'px';
+
+        // Draw emotion tag
+        const tag = document.createElement('div');
+        tag.className = 'emotion-tag';
+        tag.style.left = left + 'px';
+        tag.style.top = (top - 34) + 'px';
+        tag.textContent = f.emotion;
+
+        imageWrap.appendChild(box);
+        imageWrap.appendChild(tag);
       });
     }
   </script>

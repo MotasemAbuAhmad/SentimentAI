@@ -1,17 +1,20 @@
-# main.py
+# backend/main.py
+
 import cv2
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, File, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from backend.face_detection import FaceDetector
 from backend.inference import EmotionClassifier
 
-# backend/main.py
-from fastapi.middleware.cors import CORSMiddleware
+EMOTION_CLASSES = ["Angry", "Disgusted", "Fearful", "Happy", "Sad", "Surprised", "Neutral"]
 
 app = FastAPI()
+
 # Allow CORS for all origins (adjust as needed for production)
 app.add_middleware(
     CORSMiddleware,
@@ -20,10 +23,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Emotion class labels (used for API responses)
-EMOTION_CLASSES = ["Angry", "Disgusted", "Fearful", "Happy", "Sad", "Surprised", "Neutral"]
 
-app = FastAPI()
+# Mount static files (CSS, JS, etc) at /static
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
 detector = FaceDetector()
 classifier = EmotionClassifier()
 
@@ -45,42 +48,54 @@ async def predict(file: UploadFile = File(...)):
         idx = classifier.predict(face)
         emotion = EMOTION_CLASSES[idx]
         results.append({
+            "emotion": emotion,      # <---- Emotion FIRST!
             "box": [int(x), int(y), int(w), int(h)],
-            "emotion": emotion,
             "index": int(idx)
         })
-    return {
+
+    response = {
+        "num_faces": len(results),
         "faces": results,
-        "num_faces": len(results)
     }
 
-@app.websocket("/ws")
-# backend/main.py
+    # Add 'primary_emotion' if there's one face or you want to always highlight one
+    if len(results) == 1:
+        response["primary_emotion"] = results[0]["emotion"]
+    elif len(results) > 1:
+        response["primary_emotion"] = results[0]["emotion"]  # You can pick the first, or implement confidence if available
+
+    return response
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    """
+    WebSocket endpoint for real-time video (clients send JPEG frames as bytes)
+    """
     await ws.accept()
     try:
         while True:
             data = await ws.receive_bytes()
             nparr = np.frombuffer(data, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
+            faces = detector.detect(frame)
             results = []
-            for (x, y, w, h) in detector.detect(frame):
+            for (x, y, w, h) in faces:
                 face = frame[y:y+h, x:x+w]
-                emotion_idx = classifier.predict(face)
+                idx = classifier.predict(face)
+                emotion = EMOTION_CLASSES[idx]
                 results.append({
-                    "bbox": [int(x), int(y), int(w), int(h)],
-                    "emotion": int(emotion_idx)
+                    "box": [int(x), int(y), int(w), int(h)],
+                    "emotion": emotion,
+                    "index": int(idx)
                 })
-
-            await ws.send_json({"faces": results})
+            await ws.send_json({"faces": results, "num_faces": len(results)})
     except WebSocketDisconnect:
         pass
 
 @app.get("/")
 def root():
-    return {"message": "SentimentAI backend is running."}
+    # Serve the main HTML file from the frontend directory
+    return FileResponse("frontend/index.html")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

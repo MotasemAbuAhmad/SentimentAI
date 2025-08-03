@@ -16,8 +16,9 @@ class EmotionClassifier:
         self.session = ort.InferenceSession(model_path, providers=providers)
 
     def predict(self, face_img):
-        # Preprocess: resize, normalize, NCHW
-        img = cv2.resize(face_img, (224, 224)).astype(np.float32) / 255.0
-        img = np.transpose(img, (2, 0, 1))[None, ...]  # shape (1,3,224,224)
+        # Preprocess: resize to 48x48, convert to grayscale, normalize, shape (1, 48, 48, 1)
+        gray = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
+        img = cv2.resize(gray, (48, 48)).astype(np.float32) / 255.0
+        img = img.reshape(1, 48, 48, 1)  # batch size 1, HWC1
         outputs = self.session.run(None, {'input': img})
         return int(np.argmax(outputs[0]))

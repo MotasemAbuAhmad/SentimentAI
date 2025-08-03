@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SentimentAI Live Webcam</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1a1a1a; color: #fff; }
+    #main { display: flex; flex-direction: column; align-items: center; margin-top: 30px;}
+    video, canvas { border-radius: 18px; box-shadow: 0 8px 36px #0003; }
+    #status { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="main">
+    <video id="video" width="480" height="360" autoplay muted playsinline></video>
+    <canvas id="canvas" width="480" height="360"></canvas>
+    <div id="status">Connecting…</div>
+  </div>
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const status = document.getElementById('status');
+    let ws;
+    const emotionLabels = ["Angry","Disgusted","Fearful","Happy","Sad","Surprised","Neutral"];
+
+    // Start webcam
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        video.onloadedmetadata = () => video.play();
+        status.textContent = "Starting camera…";
+        connectWebSocket();
+      })
+      .catch(err => status.textContent = "Camera error: " + err);
+
+    function connectWebSocket() {
+      ws = new WebSocket("ws://localhost:8000/ws");
+      ws.binaryType = "arraybuffer";
+      ws.onopen = () => {
+        status.textContent = "Connected";
+        sendFrames();
+      };
+      ws.onerror = e => status.textContent = "WebSocket error!";
+      ws.onclose = () => status.textContent = "Connection closed.";
+      ws.onmessage = evt => {
+        const data = JSON.parse(evt.data);
+        drawOverlay(data.emotions);
+      };
+    }
+
+    function sendFrames() {
+      const send = () => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          if (ws.readyState === 1 && blob) {
+            ws.send(blob);
+            setTimeout(send, 80); // ~12 FPS
+          }
+        }, 'image/jpeg', 0.8);
+      };
+      send();
+    }
+
+    function drawOverlay(emotions) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // This simple overlay just displays number of detected faces and emotion indices
+      ctx.font = "20px sans-serif";
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0, 0, 250, 36);
+      ctx.fillStyle = "#ff0";
+      ctx.fillText("Detected faces: " + emotions.length, 10, 28);
+      emotions.forEach((e, i) => {
+        ctx.fillText(emotionLabels[e] || "?", 10, 60 + i * 28);
+      });
+    }
+  </script>
+</body>
+</html>

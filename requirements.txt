@@ -21,3 +21,4 @@ tf2onnx
 # (Optional) Core ML conversion
 coremltools
 
+python-multipart

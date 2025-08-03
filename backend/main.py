@@ -8,6 +8,18 @@ import uvicorn
 from backend.face_detection import FaceDetector
 from backend.inference import EmotionClassifier
 
+# backend/main.py
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+# Allow CORS for all origins (adjust as needed for production)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Emotion class labels (used for API responses)
 EMOTION_CLASSES = ["Angry", "Disgusted", "Fearful", "Happy", "Sad", "Surprised", "Neutral"]
 
@@ -43,26 +55,26 @@ async def predict(file: UploadFile = File(...)):
     }
 
 @app.websocket("/ws")
+# backend/main.py
+@app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
-    """
-    WebSocket endpoint for real-time streaming—send raw JPEG bytes, receive emotions.
-    """
     await ws.accept()
     try:
         while True:
             data = await ws.receive_bytes()
             nparr = np.frombuffer(data, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            emotions = []
+
+            results = []
             for (x, y, w, h) in detector.detect(frame):
                 face = frame[y:y+h, x:x+w]
-                idx = classifier.predict(face)
-                emotions.append({
-                    "box": [int(x), int(y), int(w), int(h)],
-                    "emotion": EMOTION_CLASSES[idx],
-                    "index": int(idx)
+                emotion_idx = classifier.predict(face)
+                results.append({
+                    "bbox": [int(x), int(y), int(w), int(h)],
+                    "emotion": int(emotion_idx)
                 })
-            await ws.send_json({"faces": emotions})
+
+            await ws.send_json({"faces": results})
     except WebSocketDisconnect:
         pass
 

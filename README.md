@@ -95,10 +95,3 @@ License
 MIT
 
 ---
-
-**Suggestions:**
-- Replace or update the “Input” line under model details if you change the input size (right now, the backend expects 48x48 grayscale).
-- Add “Demo GIF”/screenshots if you want more polish!
-- If you add webcam live video support, add a note in features/API.
-
-Let me know if you want a badge row, contribution section, or more!
